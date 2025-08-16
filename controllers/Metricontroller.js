@@ -52,4 +52,41 @@ export const deleteMetric = async (req, res) => {
     }
 };
 
+// metricsController.js
+export const getTopRegionsByAQI = async (req, res) => {
+    try {
+        const top5AQI = await Metrics.aggregate([
+            { $sort: { "air_quality.AQI": -1 } },
+            { $limit: 5 },
+            { $project: { region: 1, "air_quality.AQI": 1 } }
+        ]);
+        res.status(200).json(top5AQI);
+    } catch (error) {
+        res.status(500).json({ error: "Internal Server Error." });
+    }
+};
+
+export const getAveragePM25ByRegion = async (req, res) => {
+    try {
+        const avgPM25PerRegion = await Metrics.aggregate([
+            { $group: { _id: "$region", avgPM25: { $avg: "$air_quality.PM2_5" } } },
+            { $sort: { avgPM25: -1 } }
+        ]);
+        res.status(200).json(avgPM25PerRegion);
+    } catch (error) {
+        res.status(500).json({ error: "Internal Server Error." });
+    }
+};
+
+export const getHighHospitalVisitsRegions = async (req, res) => {
+    try {
+        const highHospitalVisits = await Metrics.aggregate([
+            { $group: { _id: "$region", avgHospitalVisits: { $avg: "$health.hospital_visits" } } },
+            { $match: { avgHospitalVisits: { $gt: 50 } } }
+        ]);
+        res.status(200).json(highHospitalVisits);
+    } catch (error) {
+        res.status(500).json({ error: "Internal Server Error." });
+    }
+};
 
