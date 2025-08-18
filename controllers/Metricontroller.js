@@ -16,7 +16,7 @@ export const create = async (req, res) => {
 };
 export const fetch = async (req, res) => {
     try {
-        const metrics = await Metrics.find();
+        const metrics = await Metrics.find().limit(20);
         if (metrics.length === 0) {
             return res.status(404).json({ message: "No metrics found." });
         }
@@ -25,31 +25,31 @@ export const fetch = async (req, res) => {
         res.status(500).json({ error: "Internal Server Error." });
     }
 };
-export const update = async (req, res) => {
-    try {
-        const id = req.params.id;
-        const metricExist = await Metrics.findById(id);
-        if (!metricExist) {
-            return res.status(404).json({ message: "Metrics not found." });
-        }
-        const updatedMetric = await Metrics.findByIdAndUpdate(id, req.body, { new: true });
-        res.status(200).json(updatedMetric);
-    } catch (error) {
-        res.status(500).json({ error: "Internal Server Error." });
-    }
-};
+
 export const deleteMetric = async (req, res) => {
-    try {
-        const id = req.params.id;
-        const metricExist = await Metrics.findById(id);
-        if (!metricExist) {s
-            return res.status(404).json({ message: "Metrics not found." });
-        }
-        await Metrics.findByIdAndDelete(id);
-        res.status(200).json({ message: "Metrics deleted successfully." });
-    } catch (error) {
-        res.status(500).json({ error: "Internal Server Error." });
+  try {
+    const { region, date } = req.params;
+
+    // Normalize date to match documents on the specified day
+    const dayStart = new Date(date);
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setUTCHours(23, 59, 59, 999);
+
+    // Find and delete the metric by region and date range
+    const deletedMetric = await Metrics.findOneAndDelete({
+      region,
+      date: { $gte: dayStart, $lte: dayEnd },
+    });
+
+    if (!deletedMetric) {
+      return res.status(404).json({ message: "Metric not found." });
     }
+
+    res.status(200).json({ message: "Metric deleted successfully." });
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error." });
+  }
 };
 
 // metricsController.js
@@ -79,14 +79,84 @@ export const getAveragePM25ByRegion = async (req, res) => {
 };
 
 export const getHighHospitalVisitsRegions = async (req, res) => {
-    try {
-        const highHospitalVisits = await Metrics.aggregate([
-            { $group: { _id: "$region", avgHospitalVisits: { $avg: "$health.hospital_visits" } } },
-            { $match: { avgHospitalVisits: { $gt: 50 } } }
-        ]);
-        res.status(200).json(highHospitalVisits);
-    } catch (error) {
-        res.status(500).json({ error: "Internal Server Error." });
-    }
+  try {
+    const highHospitalVisits = await Metrics.aggregate([
+      {
+        $group: {
+          _id: "$region",
+          avgHospitalVisits: { $avg: "$health.hospital_visits" }
+        }
+      },
+      { $match: { avgHospitalVisits: { $gt: 10 } } }
+    ]);
+    console.log("Aggregation Result:", highHospitalVisits);
+    res.status(200).json(highHospitalVisits);
+  } catch (error) {
+    console.error("Aggregation Error:", error.message);
+    res.status(500).json({ error: "Internal Server Error." });
+  }
 };
 
+
+
+// PUT /metrics/:id
+export const update = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const metric = await Metrics.findByIdAndUpdate(
+      id,
+      { $set: req.body },
+      { new: true }
+    );
+
+    if (!metric) {
+      return res.status(404).json({ message: "Metric not found" });
+    }
+
+    res.json(metric);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+export const updateByRegionAndDate = async (req, res) => {
+  try {
+    const { region, date } = req.params;
+
+    // Construct date range for given day
+    const dayStart = new Date(date);
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setUTCHours(23, 59, 59, 999);
+
+    // Debug logs
+    console.log("Region:", region);
+    console.log("Date (raw):", date);
+    console.log("Day Start:", dayStart);
+    console.log("Day End:", dayEnd);
+    console.log("Request Body:", req.body);
+
+    // Find metric by region and date within the day
+    const updatedMetric = await Metrics.findOneAndUpdate(
+      {
+        region,
+        date: { $gte: dayStart, $lte: dayEnd }
+      },
+      { $set: req.body },
+      { new: true }
+    );
+
+    // Log the found document (if any)
+    console.log("Updated Metric:", updatedMetric);
+
+    if (!updatedMetric) {
+      console.log("Metric not found for the specified region and date.");
+      return res.status(404).json({ message: "Metric not found" });
+    }
+
+    res.status(200).json(updatedMetric);
+  } catch (err) {
+    console.error("Error in updateByRegionAndDate:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+};

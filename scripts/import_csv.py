@@ -1,6 +1,7 @@
 import pandas as pd
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from datetime import datetime
 import os
 load_dotenv()
 # connect to MongoDB
@@ -13,7 +14,8 @@ flat_records = df.to_dict(orient="records")
 # transforming flat rows into nested schema
 records = [
     {
-        "date": rec["date"],
+        
+"date": datetime.strptime(rec["date"], "%Y-%m-%d"),
         "region": rec["region"],
         "air_quality": {
             "AQI": rec["AQI"],

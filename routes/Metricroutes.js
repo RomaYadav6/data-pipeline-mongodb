@@ -1,7 +1,7 @@
 import express from "express";
 import { 
     create, fetch, update, deleteMetric, 
-    getTopRegionsByAQI, getAveragePM25ByRegion, getHighHospitalVisitsRegions 
+    getTopRegionsByAQI, getAveragePM25ByRegion, getHighHospitalVisitsRegions ,updateByRegionAndDate
 } from "../controllers/Metricontroller.js";
 
 const router = express.Router();
@@ -10,8 +10,9 @@ const router = express.Router();
 router.post("/", create);
 router.get("/", fetch);
 router.put("/:id", update);
-router.delete("/:id", deleteMetric);
+router.delete("/:region/:date", deleteMetric);
 
+router.put("/:region/:date", updateByRegionAndDate);
 // Advanced query routes
 router.get("/top-aqi", getTopRegionsByAQI);
 router.get("/avg-pm25", getAveragePM25ByRegion);
